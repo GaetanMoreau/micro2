@@ -28,15 +28,15 @@ app.post('/api/supply', async (req, res) => {
   }
   const data = await response.json();
 
-  const filteredProducts = data.filter(item => item.ean === products.ean);
+  const existingProducts = products.filter(product => data.some(p => p.ean === product.ean));
 
-  console.log(filteredProducts)
+  console.log(existingProducts)
 
   try {
-    for (const filteredProduct of filteredProducts) {
+    for (const existingProduct of existingProducts) {
       const stockMovement = {
-        productId: filteredProduct._id,
-        quantity: products.quantity,
+        productId: data.find(p => p.ean === existingProduct.ean)._id,
+        quantity: existingProduct.quantity,
         status: 'Supply',
       };
       await sendStockMovement(stockMovement);
