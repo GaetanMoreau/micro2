@@ -17,44 +17,38 @@ app.get('/', (req, res) => {
 })
 
 //Story #1
-const product = {
-  productId: 1,
-  ean: 'EAN13',
-  name: "Iphone",
-  description: "New phone",
-  purchasePricePerUnit: 1400,
-  quantity: 12
-};
+let productId = 0
+const catalogueUrl = "http://microservices.tp.rjqu8633.odns.fr/api/products"
+const stockUrl = "https://api-stock.vercel.app/api/stock/" + productId + '/movement'
 
 app.use(express.json());
 
-app.post('/api/supply', (req, res) => {
-  const options = {
-    hostname: 'api-stock.vercel.app',
-    port: 443,
-    path: `/api/stock/${product.productId}/movement`,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
+app.post('/api/supply', async (req, res) => {
+  try {
+    const response = await fetch(catalogueUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+    const data = await response.json();
 
-  const reqApi = https.request(options, (resApi) => {
-    let body = '';
-    resApi.on('data', (chunk) => {
-      body += chunk;
+    productId = data[0].ean
+
+    const postResponse = await fetch(stockUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data[0]),
     });
 
-    resApi.on('end', () => {
-      res.status(200).send(body);
-    });
-  });
+    if (!postResponse.ok) {
+      throw new Error(`HTTP error! status: ${postResponse.status}`);
+    }
+    const postData = await postResponse.json();
 
-  reqApi.on('error', (error) => {
+    res.status(200).json(postData);
+  } catch (error) {
     console.error(error);
-    res.status(500).send('Erreur lors de l\'appel à l\'API externe');
-  });
-
-  reqApi.write(JSON.stringify(product));
-  reqApi.end();
+    res.status(500).send(`Error making API call: ${error.message}`);
+  }
 });
