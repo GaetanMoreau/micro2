@@ -28,7 +28,9 @@ app.post('/api/supply', async (req, res) => {
   }
   const data = await response.json();
 
-  const filteredProducts = data.filter(item => products.ean === item.ean);
+  const filteredProducts = data.filter(item => item.ean === products.ean);
+
+  console.log(filteredProducts)
 
   try {
     for (const filteredProduct of filteredProducts) {
