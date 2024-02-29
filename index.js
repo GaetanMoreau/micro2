@@ -17,17 +17,26 @@ app.get('/', (req, res) => {
   res.send('Welcome on the app');
 });
 
+const catalogueUrl = "http://microservices.tp.rjqu8633.odns.fr/api/products"
+
 app.post('/api/supply', async (req, res) => {
-  const { supplyId, products } = req.body;
+  let { supplyId, products } = req.body;
+
+  const response = await fetch(catalogueUrl);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  const data = await response.json();
+
+  const filteredProducts = data.filter(item => products.ean === item.ean);
 
   try {
-    for (const product of products) {
+    for (const filteredProduct of filteredProducts) {
       const stockMovement = {
-        productId: product.ean,
-        quantity: product.quantity,
+        productId: filteredProduct._id,
+        quantity: products.quantity,
         status: 'Supply',
       };
-
       await sendStockMovement(stockMovement);
     }
 
