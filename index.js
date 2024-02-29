@@ -1,54 +1,67 @@
-
-const express = require('express')
+const express = require('express');
 const https = require('https');
-const app = express()
-const port = 5000
-
-app.listen(port, () => {
-  console.log(`App listening on port ${port}`)
-})
-
-//Story #0
-app.get('/api/ping', (req, res) => {
-  res.send('Pong')
-})
-app.get('/', (req, res) => {
-  res.send('Welcome on the app')
-})
-
-//Story #1
-let productId = 0
-const catalogueUrl = "http://microservices.tp.rjqu8633.odns.fr/api/products"
-const stockUrl = "https://api-stock.vercel.app/api/stock/" + productId + '/movement'
+const app = express();
+const port = 5000;
 
 app.use(express.json());
 
+app.listen(port, () => {
+  console.log(`App listening on port ${port}`);
+});
+
+app.get('/api/ping', (req, res) => {
+  res.send('Pong');
+});
+
+app.get('/', (req, res) => {
+  res.send('Welcome on the app');
+});
+
 app.post('/api/supply', async (req, res) => {
+  const { supplyId, products } = req.body;
+
   try {
-    const response = await fetch(catalogueUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    for (const product of products) {
+      const stockMovement = {
+        productId: product.ean,
+        quantity: product.quantity,
+        status: 'Supply',
+      };
+
+      await sendStockMovement(stockMovement);
     }
-    const data = await response.json();
 
-    productId = data[0].ean
+    res.status(204).send();
+  } catch (error) {
+    console.error('Failed to process supply:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
 
-    const postResponse = await fetch(stockUrl, {
+async function sendStockMovement(stockMovement) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api-stock.vercel.app',
+      path: `/api/stock/${stockMovement.productId}/movement`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data[0]),
+    };
+
+    const req = https.request(options, (res) => {
+      if (res.statusCode === 204) {
+        resolve();
+      } else {
+        reject(new Error(`Failed to send stock movement with status code: ${res.statusCode}`));
+      }
     });
 
-    if (!postResponse.ok) {
-      throw new Error(`HTTP error! status: ${postResponse.status}`);
-    }
-    const postData = await postResponse.json();
+    req.on('error', (error) => {
+      reject(error);
+    });
 
-    res.status(200).json(postData);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(`Error making API call: ${error.message}`);
-  }
-});
+    req.write(JSON.stringify(stockMovement));
+    req.end();
+  });
+}
