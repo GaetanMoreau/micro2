@@ -30,8 +30,6 @@ app.post('/api/supply', async (req, res) => {
 
   const existingProducts = products.filter(product => data.some(p => p.ean === product.ean));
 
-  console.log(existingProducts)
-
   try {
     for (const existingProduct of existingProducts) {
       const stockMovement = {
@@ -39,7 +37,11 @@ app.post('/api/supply', async (req, res) => {
         quantity: existingProduct.quantity,
         status: 'Supply',
       };
-      await sendStockMovement(stockMovement);
+      if (stockMovement.quantity < 0) {
+        console.error('La quantité ne peux pas être négative');
+      } else {
+        await sendStockMovement(stockMovement);
+      }
     }
 
     res.status(204).send();
