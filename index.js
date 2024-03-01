@@ -125,3 +125,56 @@ async function createNewProduct(newProduct) {
     req.end();
   });
 }
+
+app.post('/api/supply-needed', async (req, res) => {
+  let { productId } = req.body;
+  try {
+    if (productId) {
+      const response = await fetch(catalogueUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const productToSupply = data.find((element) => element._id === productId)
+
+      await (askForSupply(productToSupply))
+    } else {
+      console.error("Il n'y a pas d'id de produit")
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Failed to process supply:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+async function askForSupply(productToSupply) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'microservices.tp.rjqu8633.odns.fr',
+      path: `/api/supply-request`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    const req = http.request(options, (res) => {
+      if (res.statusCode === 204) {
+        resolve();
+      } else {
+        reject(new Error(`Failed to add product to catalog with status code: ${res.statusCode}, ${res.body}`));
+      }
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.write(JSON.stringify(productToSupply.ean));
+    req.end();
+  });
+}
