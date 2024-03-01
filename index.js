@@ -1,5 +1,6 @@
 const express = require('express');
 const https = require('https');
+const http = require('http');
 const app = express();
 const port = 5000;
 
@@ -31,16 +32,30 @@ app.post('/api/supply', async (req, res) => {
   const existingProducts = products.filter(product => data.some(p => p.ean === product.ean));
 
   try {
-    for (const existingProduct of existingProducts) {
-      const stockMovement = {
-        productId: data.find(p => p.ean === existingProduct.ean)._id,
-        quantity: existingProduct.quantity,
-        status: 'Supply',
-      };
-      if (stockMovement.quantity < 0) {
-        console.error('La quantité ne peux pas être négative');
-      } else {
-        await sendStockMovement(stockMovement);
+    if (existingProducts.length > 0) {
+      for (const existingProduct of existingProducts) {
+        const stockMovement = {
+          productId: data.find(p => p.ean === existingProduct.ean)._id,
+          quantity: existingProduct.quantity,
+          status: 'Supply',
+        };
+        if (stockMovement.quantity < 0) {
+          console.error('La quantité ne peux pas être négative');
+        } else {
+          await sendStockMovement(stockMovement);
+        }
+      }
+    } else {
+      for (const product of products) {
+        const newProduct = {
+          productId: "",
+          ean: product.ean,
+          name: product.name,
+          description: product.description,
+          categories: product.categories,
+          price: product.price,
+        };
+        await (createNewProduct(newProduct))
       }
     }
 
@@ -75,6 +90,38 @@ async function sendStockMovement(stockMovement) {
     });
 
     req.write(JSON.stringify(stockMovement));
+    req.end();
+  });
+}
+
+async function createNewProduct(newProduct) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'microservices.tp.rjqu8633.odns.fr',
+      path: `/api/products`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    const req = http.request(options, (res) => {
+      res.on('data', (chunk) => {
+        console.log(`BODY: ${chunk}`);
+      });
+      if (res.statusCode === 201) {
+        resolve();
+      } else {
+        reject(new Error(`Failed to add product to catalog with status code: ${res.statusCode}, ${res.body}`));
+      }
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.write(JSON.stringify(newProduct));
+
     req.end();
   });
 }
